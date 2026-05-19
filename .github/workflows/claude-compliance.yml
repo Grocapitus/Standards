@@ -1,0 +1,44 @@
+name: Claude Code Compliance
+
+on:
+  workflow_call:
+
+jobs:
+  check-claude-md:
+    name: Verify CLAUDE.md standards
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: CLAUDE.md exists
+        run: |
+          if [ ! -f "CLAUDE.md" ]; then
+            echo "❌ CLAUDE.md is missing."
+            echo "   Every Grocapitus repo must have CLAUDE.md."
+            echo "   Copy the template from: https://github.com/grocapitus/standards/blob/main/CLAUDE.md"
+            exit 1
+          fi
+
+      - name: CLAUDE.md contains required Karpathy principles
+        run: |
+          fail=0
+          for section in "Think Before Coding" "Simplicity First" "Surgical Changes" "Goal-Driven Execution"; do
+            if ! grep -q "$section" CLAUDE.md; then
+              echo "❌ Missing required section in CLAUDE.md: $section"
+              fail=1
+            fi
+          done
+          if [ $fail -eq 0 ]; then
+            echo "✅ All 4 Karpathy principles present"
+          fi
+          exit $fail
+
+      - name: CLAUDE.md contains Haiku model policy
+        run: |
+          if ! grep -qi "haiku" CLAUDE.md; then
+            echo "❌ CLAUDE.md must include Claude Haiku model policy section."
+            echo "   Copy the 'Model Policy — MANDATORY' section from:"
+            echo "   https://github.com/grocapitus/standards/blob/main/CLAUDE.md"
+            exit 1
+          fi
+          echo "✅ Haiku model policy section present"

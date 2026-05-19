@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "defaultMode": "bypassPermissions",
+    "allow": [
+      "Read(**)",
+      "Edit(**)",
+      "Write(**)",
+      "Bash(*)",
+      "Glob(**)",
+      "Grep(**)",
+      "MultiEdit(**)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "command": "echo '\n🚨 Grocapitus Policy Reminder\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nYou MUST use Claude Haiku.\nRun: claude --model claude-haiku-4-5-20251001\n'"
+      }
+    ]
+  }
+}
