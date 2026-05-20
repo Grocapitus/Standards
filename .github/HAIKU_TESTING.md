@@ -427,6 +427,65 @@ Don't just test "modal opens" — test "modal renders data safely".
 
 ---
 
+## Critical Testing Gap: Fetch Call Headers (May 2026 Production Bug)
+
+**Real-world bug**: Admin buttons (Preview, Approve, Reject) broken in production. Tests claimed "functions exist" but never verified headers were included. All three fetch calls omitted `X-CSRF-Token`, causing 403 responses.
+
+### The Three-Level Test Pattern for Protected API Calls
+
+Every `fetch()` to a protected endpoint needs three test levels:
+
+**Level 1: Existence** (Haiku does this)
+```javascript
+// Check: Does the function name appear in the code?
+test: 'previewApp' in html_source
+Result: ✅ Function exists
+Issue: ❌ Never verifies headers or endpoint behavior
+```
+
+**Level 2: Correctness** (Haiku usually skips)
+```javascript
+// Check: Does the function send required headers?
+test: 'X-CSRF-Token' in function_body
+test: 'Content-Type' in function_body
+Result: ✅ Function has correct structure
+Issue: ❌ Server might still reject (wrong token, wrong endpoint, etc.)
+```
+
+**Level 3: Integration** (Haiku rarely tests)
+```python
+# Check: Does the server actually respond with 200?
+test: response = api_call(endpoint); assert response.status_code == 200
+test: assert file_created or db_updated (verify side effects)
+Result: ✅ Feature actually works end-to-end
+Issue: ❌ Only caught if you test this level
+```
+
+### Haiku Instruction: Required for Protected API Calls
+
+When Haiku creates admin buttons, form submissions to protected endpoints, or any feature with fetch to `/admin/api/*`:
+
+```
+REQUIRED: Test all three levels for protected fetch calls.
+
+1. EXISTENCE: Function exists in code?
+   Test: assert 'previewApp' in html
+
+2. CORRECTNESS: Fetch call has required headers?
+   Test: assert "'X-CSRF-Token': window.csrfToken" in function_body
+   Test: assert "'Content-Type': 'application/json'" in function_body
+
+3. INTEGRATION: Server accepts the call?
+   Test: response = fetch(url, {headers with CSRF token})
+   Test: assert response.status == 200 (not 403)
+   Test: assert file/db change occurred (preview dir created, app approved, etc.)
+
+Don't claim "tests pass" unless all three levels verified.
+The bug pattern: Level 1 ✅, Level 2-3 ❌, app breaks in production.
+```
+
+---
+
 ## Org Rollout
 
 ### Phase 1: This Project (Pilot)
