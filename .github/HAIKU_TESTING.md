@@ -108,9 +108,12 @@ Both must pass with 0 failures before claiming the feature is done.
    - Result: Invalid input crashes the app
    - Fix: Test both happy path + error cases
 
-4. **Test API in isolation without testing UI**
-   - Result: API returns correct JSON, but JavaScript can't display it
-   - Fix: Add Playwright tests that verify API data appears in UI
+4. **Test API in isolation without testing UI** ⚠️ CRITICAL
+   - Result: API returns correct JSON, but JavaScript crashes trying to display it
+   - Example: `(review.stack || []).join()` crashes when review.stack is undefined
+   - What gets missed: `.map()`, `.join()` on undefined arrays; missing field fallbacks
+   - Fix: Add Playwright tests that verify API data safely renders in the DOM
+   - Test must check: data appears correctly, no JavaScript errors thrown
 
 ### ✅ Instead, Require Haiku to:
 
@@ -349,6 +352,78 @@ if __name__ == '__main__':
 | "Modal is blank" | Modal content not tested | Check modal elements with `page.locator()` |
 | "Admin buttons visible to all" | No permission tests | Add tests that verify buttons hidden for non-admins |
 | "Mobile view broken" | No responsive tests | Test with `viewport={"width": 375, "height": 667}` |
+| **"undefined.join() error"** ⚠️ | **Array fields undefined, tests missed data rendering** | **Test that data from API renders safely: check for Array.isArray() defensive checks, fallbacks for missing fields** |
+
+---
+
+## Critical Bug Class: Array Method Crashes on Undefined Data
+
+**Real-world bug caught in production** (May 2026):
+
+Modal tests passed (18/19 tests), but feature crashed in production with:
+```
+Error: (review.stack || []).join is not a function
+```
+
+### Why Tests Missed This
+
+Frontend tests verified:
+- ✅ Modal exists in DOM
+- ✅ Modal opens when button clicked
+- ✅ Modal closes cleanly
+
+Frontend tests **did NOT verify**:
+- ❌ API data renders without errors
+- ❌ review.stack is actually an array before calling .join()
+- ❌ Missing fields are handled gracefully
+- ❌ No undefined.map(), undefined.length, undefined.join() crashes
+
+### How to Test For This (What Haiku Must Do)
+
+When testing data rendering in modals/components:
+
+```javascript
+// BAD - Will crash if review.stack is undefined
+${(review.stack || []).join(' · ')}
+
+// GOOD - Safe defensive code
+${Array.isArray(review.stack) ? review.stack.join(' · ') : 'Unknown'}
+```
+
+**Playwright test must verify**:
+1. Click button → API call → Modal loads
+2. Modal displays without JavaScript errors
+3. ALL data fields appear (summary, stack, verdict, etc.)
+4. No "undefined.join()" or "undefined.map()" errors
+5. Missing fields use fallbacks (not blank/broken)
+
+**Implementation check** (for code review):
+- Does code use Array.isArray() before calling .map(), .join(), .filter()?
+- Do object fields have fallbacks (|| default)?
+- Does modal test actually fetch data and verify rendering?
+
+### Haiku Instructions (For Requesting Proper Tests)
+
+When Haiku creates features with API data → DOM rendering:
+
+```
+CRITICAL: Your tests MUST verify data rendering, not just element existence.
+
+Test that:
+1. Page loads API data without JavaScript errors
+2. Array fields use Array.isArray() before .map()/.join()
+3. String fields use || fallbacks for missing values
+4. Modal/component displays all data fields correctly
+5. Missing/undefined values are handled gracefully
+
+Example: If API returns review={summary, stack, verdict, issues}
+Test must verify:
+- review.stack is an array (use Array.isArray check)
+- stack.join() doesn't crash
+- Missing fields show "Unknown" or similar, not blank
+
+Don't just test "modal opens" — test "modal renders data safely".
+```
 
 ---
 
